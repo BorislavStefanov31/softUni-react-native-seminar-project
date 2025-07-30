@@ -12,31 +12,20 @@ export interface ITask {
 
 export function useTasks() {
   const [tasks, setTasks] = useState<ITask[]>([]);
+  const [isLoaded, setIsLoaded] = useState(false);
 
-  const saveTasks = useCallback(async (tasksToSave: ITask[]) => {
-    try {
-      await AsyncStorage.setItem(TASKS_ASYNC_KEY, JSON.stringify(tasksToSave));
-    } catch (error) {
-      console.error('Failed to save tasks:', error);
-    }
-  }, []);
-
-  const addTask = useCallback(async (text: string) => {
+  const addTask = useCallback((text: string) => {
     const trimmed = text.trim();
     if (trimmed) {
       const newTask = { id: uuidv4(), text: trimmed };
-      const updatedTasks = [...tasks, newTask];
-      setTasks(updatedTasks);
-      await saveTasks(updatedTasks);
+      setTasks(prevTasks => [...prevTasks, newTask]);
     }
-  }, [tasks, saveTasks]);
-  
-  const deleteTask = useCallback(async (taskId: string) => {
-    const updatedTasks = tasks.filter(task => task.id !== taskId);
-    setTasks(updatedTasks);
-    await saveTasks(updatedTasks);
-  }, [tasks, saveTasks]);
-  
+  }, []);
+
+  const deleteTask = useCallback((taskId: string) => {
+    setTasks(prevTasks => prevTasks.filter(task => task.id !== taskId));
+  }, []);
+
   useEffect(() => {
     const loadTasks = async () => {
       try {
@@ -47,10 +36,25 @@ export function useTasks() {
         }
       } catch (error) {
         console.error('Failed to load tasks:', error);
+      } finally {
+        setIsLoaded(true);
       }
     };
     loadTasks();
   }, []);
+
+  useEffect(() => {
+    if (isLoaded) {
+      const saveTasks = async () => {
+        try {
+          await AsyncStorage.setItem(TASKS_ASYNC_KEY, JSON.stringify(tasks));
+        } catch (error) {
+          console.error('Failed to save tasks:', error);
+        }
+      };
+      saveTasks();
+    }
+  }, [tasks, isLoaded]);
 
   return {
     tasks,
